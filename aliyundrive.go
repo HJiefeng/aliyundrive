@@ -18,9 +18,11 @@ package aliyundrive
 import (
 	"context"
 	"fmt"
-	"github.com/go-resty/resty/v2"
-	"github.com/sirupsen/logrus"
 	"net/http"
+
+	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const KeyAccessToken = "aliyun_drive_access_token"
@@ -29,7 +31,7 @@ const KeyRefreshToken = "aliyun_drive_refresh_token"
 const userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 Edg/98.0.1108.62`
 
 type AliyunDrive struct {
-	logger *logrus.Logger
+	logger Logger
 	client *resty.Client
 	store  Store
 
@@ -65,14 +67,24 @@ func (r *AliyunDrive) request(ctx context.Context, req *config, result interface
 	return response, err
 }
 
-func (r *AliyunDrive) log(level logrus.Level, args ...interface{}) {
+func (r *AliyunDrive) log(level zapcore.Level, args ...interface{}) {
 	r.logger.Log(level, args...)
+}
+
+type Logger interface {
+	Log(lvl zapcore.Level, args ...interface{})
 }
 
 func New(options ...OptionFunc) *AliyunDrive {
 	client := resty.New()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
+	sugar := logger.Sugar()
+
 	r := &AliyunDrive{
-		logger: logrus.New(),
+		logger: sugar,
 		client: client,
 	}
 
@@ -102,7 +114,7 @@ func New(options ...OptionFunc) *AliyunDrive {
 
 type OptionFunc func(*AliyunDrive)
 
-func WithLogger(logger *logrus.Logger) OptionFunc {
+func WithLogger(logger Logger) OptionFunc {
 	return func(ins *AliyunDrive) {
 		ins.logger = logger
 	}
