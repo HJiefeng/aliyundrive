@@ -21,8 +21,7 @@ import (
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/sirupsen/logrus"
 )
 
 const KeyAccessToken = "aliyun_drive_access_token"
@@ -67,24 +66,30 @@ func (r *AliyunDrive) request(ctx context.Context, req *config, result interface
 	return response, err
 }
 
-func (r *AliyunDrive) log(level zapcore.Level, args ...interface{}) {
+func (r *AliyunDrive) log(level int8, args ...interface{}) {
 	r.logger.Log(level, args...)
 }
 
 type Logger interface {
-	Log(lvl zapcore.Level, args ...interface{})
+	Log(lvl int8, args ...interface{})
+}
+
+type wrapLogger struct {
+	logger *logrus.Logger
+}
+
+func (w *wrapLogger) Log(lvl int8, args ...interface{}) {
+	w.logger.Log(logrus.Level(lvl), args...)
+}
+
+func newWrapLogger(logger *logrus.Logger) Logger {
+	return &wrapLogger{logger: logger}
 }
 
 func New(options ...OptionFunc) *AliyunDrive {
 	client := resty.New()
-	logger, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
-	}
-	sugar := logger.Sugar()
-
 	r := &AliyunDrive{
-		logger: sugar,
+		logger: newWrapLogger(logrus.New()),
 		client: client,
 	}
 
